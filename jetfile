@@ -1,8 +1,12 @@
 pipeline {
     agent any
+
+    // 👇 This tells Jenkins to use the NodeJS tool configured in
+    // "Manage Jenkins → Tools → NodeJS installations"
     tools {
-        nodejs "node16" // 👈 name from Jenkins NodeJS configuration
+        nodejs "node16"   // Must match the name you configured in Jenkins
     }
+
     environment {
         NODEJS_USER = "root"
         NODEJS_PASSWORD = "admin"
@@ -14,34 +18,43 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                echo '📥 Checking out source code...'
                 git branch: 'main', url: 'https://github.com/jetfire46/jenkins_project.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                script {
-                    sh 'npm install'
-                }
+                echo '📦 Installing Node.js dependencies...'
+                sh 'npm install'
             }
         }
 
         stage('Build and Package') {
             steps {
-                script {
-                    sh 'npm run build || echo "No build script found"'
-                }
+                echo '🏗️ Building project...'
+                sh 'npm run build || echo "No build script found"'
             }
         }
 
         stage('Deploy to Server') {
             steps {
+                echo '🚀 Deploying to remote server...'
                 script {
+                    // Ensure deploy directory exists
                     sh """
                     sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
                         mkdir -p ${DEPLOY_DIR}
                     '
+                    """
+
+                    // Copy project files
+                    sh """
                     sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/* ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
+                    """
+
+                    // Restart application with PM2
+                    sh """
                     sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
                         cd ${DEPLOY_DIR} &&
                         pm2 stop ${APP_NAME} || true &&
@@ -54,7 +67,11 @@ pipeline {
     }
 
     post {
-        success { echo '✅ Node.js Build and Deployment Successful' }
-        failure { echo '❌ Build or Deployment Failed' }
+        success {
+            echo '✅ Node.js Build and Deployment Successful'
+        }
+        failure {
+            echo '❌ Build or Deployment Failed'
+        }
     }
 }
