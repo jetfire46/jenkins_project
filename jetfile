@@ -1,16 +1,13 @@
 pipeline {
     agent any
-
-    tools {
-        nodejs "node16"   // Jenkins NodeJS tool
-    }
-
     environment {
         NODEJS_USER = "root"
         NODEJS_PASSWORD = "admin"
         NODEJS_IP = "65.0.135.30"
         APP_NAME = "sample-node-project"
         DEPLOY_DIR = "/${NODEJS_USER}/${APP_NAME}"
+        NODEJS_HOME = tool name: 'node16', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
+        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
     }
 
     stages {
@@ -21,20 +18,21 @@ pipeline {
             }
         }
 
-        // 👇 Fix missing system library
         stage('Install System Dependencies') {
             steps {
                 script {
-                    echo '🧩 Ensuring libatomic is installed...'
+                    echo '🧩 Installing system dependencies if needed...'
                     sh '''
-                        if [ -x "$(command -v apt-get)" ]; then
-                            sudo apt-get update -y
-                            sudo apt-get install -y libatomic1 sshpass
-                        elif [ -x "$(command -v yum)" ]; then
-                            sudo yum install -y libatomic sshpass
-                        else
-                            echo "⚠️ Unsupported package manager. Please install libatomic manually."
-                        fi
+                    if [ -x "$(command -v apt-get)" ]; then
+                        echo "Debian/Ubuntu detected"
+                        apt-get update -y
+                        apt-get install -y libatomic1 sshpass || echo "Already installed"
+                    elif [ -x "$(command -v yum)" ]; then
+                        echo "RHEL/CentOS detected"
+                        yum install -y libatomic sshpass || echo "Already installed"
+                    else
+                        echo "⚠️ Unsupported package manager. Ensure libatomic1 and sshpass are installed."
+                    fi
                     '''
                 }
             }
@@ -57,19 +55,14 @@ pipeline {
         stage('Deploy to Server') {
             steps {
                 echo '🚀 Deploying to remote server...'
-                script {
-                    sh """
-                    sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
-                        mkdir -p ${DEPLOY_DIR}
-                    '
-                    sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/* ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
-                    sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
-                        cd ${DEPLOY_DIR} &&
-                        pm2 stop ${APP_NAME} || true &&
-                        pm2 start app.js --name ${APP_NAME}
-                    '
-                    """
-                }
+                sh """
+                sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/ ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
+                sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
+                    cd ${DEPLOY_DIR} &&
+                    pm2 stop ${APP_NAME} || true &&
+                    pm2 start app.js --name ${APP_NAME}
+                '
+                """
             }
         }
     }
