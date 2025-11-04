@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    tools {
+        nodejs "node16" // 👈 name from Jenkins NodeJS configuration
+    }
     environment {
         NODEJS_USER = "root"
         NODEJS_PASSWORD = "admin"
@@ -18,7 +21,6 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Install Node.js dependencies without using sudo
                     sh 'npm install'
                 }
             }
@@ -27,7 +29,6 @@ pipeline {
         stage('Build and Package') {
             steps {
                 script {
-                    // Optional: Run build script if the project has one
                     sh 'npm run build || echo "No build script found"'
                 }
             }
@@ -36,13 +37,11 @@ pipeline {
         stage('Deploy to Server') {
             steps {
                 script {
-                    // Copy project files to the remote server
                     sh """
-                    sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/ ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
-                    """
-
-                    // Restart the application on the remote server using PM2
-                    sh """
+                    sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
+                        mkdir -p ${DEPLOY_DIR}
+                    '
+                    sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/* ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
                     sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
                         cd ${DEPLOY_DIR} &&
                         pm2 stop ${APP_NAME} || true &&
@@ -55,11 +54,7 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'Node.js Build and Deployment Successful'
-        }
-        failure {
-            echo 'Build or Deployment Failed'
-        }
+        success { echo '✅ Node.js Build and Deployment Successful' }
+        failure { echo '❌ Build or Deployment Failed' }
     }
 }
