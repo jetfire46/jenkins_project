@@ -19,6 +19,7 @@ pipeline {
             steps {
                 script {
                     // Install Node.js dependencies locally
+                    sh 'sudo -i'
                     sh 'npm install'
                 }
             }
