@@ -3,7 +3,7 @@ pipeline {
     environment {
         NODEJS_USER = "root"
         NODEJS_PASSWORD = "admin"
-        NODEJS_IP = "172.31.38.87"
+        NODEJS_IP = "65.0.135.30"
         APP_NAME = "sample-node-project"
         DEPLOY_DIR = "/${NODEJS_USER}/${APP_NAME}"
     }
@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'master', url: 'https://github.com/acemilyalcin/sample-node-project.git'
+                git branch: 'main', url: 'https://github.com/jetfire46/jenkins_project.git'
             }
         }
 
