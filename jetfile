@@ -1,51 +1,38 @@
 pipeline {
     agent any
-    environment {
-        NODEJS_HOME = tool name: 'node16', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
-        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
-    }
 
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Checking out source code...'
                 git branch: 'main', url: 'https://github.com/jetfire46/jenkins_project.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo '📦 Installing Node.js dependencies locally...'
-                sh 'npm install --no-optional'
+                dir('frontend') {
+                    sh 'npm install'
+                }
             }
         }
 
         stage('Build') {
             steps {
-                echo '🏗️ Building project...'
-                sh 'npm run build || echo "No build script found, skipping build"'
+                dir('frontend') {
+                    sh 'npm run build || echo "No build script, skipping"'
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo '🚀 Deploying project...'
-                // Example: copy to remote server
-                // Adjust USER, HOST, and paths to match your environment
-                sh '''
-                sshpass -p "$DEPLOY_PASSWORD" scp -r $WORKSPACE/* $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH
-                sshpass -p "$DEPLOY_PASSWORD" ssh $DEPLOY_USER@$DEPLOY_HOST "
-                  cd $DEPLOY_PATH
-                  pm2 stop app || true
-                  pm2 start app.js --name my-app
-                "
-                '''
+                echo 'Deploy logic goes here'
             }
         }
     }
 
     post {
-        success { echo '✅ Build and deployment succeeded!' }
-        failure { echo '❌ Build or deployment failed!' }
+        success { echo '✅ Build succeeded!' }
+        failure { echo '❌ Build failed!' }
     }
 }
