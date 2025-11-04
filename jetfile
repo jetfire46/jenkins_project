@@ -1,10 +1,8 @@
 pipeline {
     agent any
 
-    // 👇 This tells Jenkins to use the NodeJS tool configured in
-    // "Manage Jenkins → Tools → NodeJS installations"
     tools {
-        nodejs "node16"   // Must match the name you configured in Jenkins
+        nodejs "node16"   // Jenkins NodeJS tool
     }
 
     environment {
@@ -20,6 +18,25 @@ pipeline {
             steps {
                 echo '📥 Checking out source code...'
                 git branch: 'main', url: 'https://github.com/jetfire46/jenkins_project.git'
+            }
+        }
+
+        // 👇 Fix missing system library
+        stage('Install System Dependencies') {
+            steps {
+                script {
+                    echo '🧩 Ensuring libatomic is installed...'
+                    sh '''
+                        if [ -x "$(command -v apt-get)" ]; then
+                            sudo apt-get update -y
+                            sudo apt-get install -y libatomic1 sshpass
+                        elif [ -x "$(command -v yum)" ]; then
+                            sudo yum install -y libatomic sshpass
+                        else
+                            echo "⚠️ Unsupported package manager. Please install libatomic manually."
+                        fi
+                    '''
+                }
             }
         }
 
@@ -41,20 +58,11 @@ pipeline {
             steps {
                 echo '🚀 Deploying to remote server...'
                 script {
-                    // Ensure deploy directory exists
                     sh """
                     sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
                         mkdir -p ${DEPLOY_DIR}
                     '
-                    """
-
-                    // Copy project files
-                    sh """
                     sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/* ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
-                    """
-
-                    // Restart application with PM2
-                    sh """
                     sshpass -p '${NODEJS_PASSWORD}' ssh -o StrictHostKeyChecking=no ${NODEJS_USER}@${NODEJS_IP} '
                         cd ${DEPLOY_DIR} &&
                         pm2 stop ${APP_NAME} || true &&
