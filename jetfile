@@ -18,9 +18,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Install Node.js dependencies locally
-                    sh 'sudo -i'
-                    sh 'npm install'
+                    // Install Node.js dependencies locally with sudo
+                    sh 'sudo npm install'
                 }
             }
         }
@@ -39,7 +38,7 @@ pipeline {
                 script {
                     // Copy project files to the remote server
                     sh """
-                    sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/* ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
+                    sshpass -p '${NODEJS_PASSWORD}' scp -r ${WORKSPACE}/ ${NODEJS_USER}@${NODEJS_IP}:${DEPLOY_DIR}/
                     """
 
                     // Restart the application on the remote server using PM2
